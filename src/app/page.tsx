@@ -8,24 +8,28 @@ import TermWinV2 from "@/components/term-win-v2"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { defaultTheme, npcTheme, voidTheme } from "@/lib/terminal-themes"
+import type { ExtendedTerminalType, TerminalMessage as V2TerminalMessage } from "@/types/terminal-types"
 
-interface Message {
+// --- Local Types for Original Terminals ---
+// Export this interface
+export interface Message {
   id: string
   content: string
-  sender: "user" | "system" | "npc" | "void"
+  sender: "user" | Llm
   timestamp: Date
 }
 
+// Define TerminalState using the local Message type (as an array)
 type TerminalState = {
   isOpen: boolean
   isToolbarMinimized: boolean
-  messages: Message[]
+  messages: Message[] // Reverted: Use Message[] again
   scrollPosition: number
-  createdAt: number // Timestamp for creation order
-  zIndex: number // For stacking order
+  createdAt: number
+  zIndex: number
 }
 
-type TerminalType = "default" | "npc" | "void" | "group"
+type TerminalType = "default" | "group"
 
 export default function Home() {
   // Window dimensions state
@@ -130,7 +134,7 @@ export default function Home() {
     group: useRef<HTMLDivElement>(null),
   }
 
-  const [activeFullscreen, setActiveFullscreen] = useState<TerminalType | null>(null)
+  const [activeFullscreen, setActiveFullscreen] = useState<ExtendedTerminalType | null>(null)
   const [nextZIndex, setNextZIndex] = useState(20) // Start z-index counter
 
   // State for TermWinV2
@@ -394,35 +398,25 @@ export default function Home() {
 
   // Cycle between fullscreen terminals
   const cycleFullscreen = (direction: "next" | "prev") => {
-    const terminalTypes = ["default", "npc", "void", "group"] as const
-    if (!activeFullscreen) return
-
-    const currentIndex = terminalTypes.indexOf(activeFullscreen)
-    let nextIndex
-
-    if (direction === "next") {
-      nextIndex = (currentIndex + 1) % terminalTypes.length
-    } else {
-      nextIndex = (currentIndex - 1 + terminalTypes.length) % terminalTypes.length
+    const openTerminalKeys = (Object.keys(terminals) as TerminalType[]).filter(key => terminals[key].isOpen)
+    const availableFullscreenKeys: ExtendedTerminalType[] = [...openTerminalKeys]
+    if (isTermWinV2Open) {
+      availableFullscreenKeys.push('v2')
     }
-
-    // Only switch if the terminal is actually open
-    if (terminals[terminalTypes[nextIndex]].isOpen) {
-      setActiveFullscreen(terminalTypes[nextIndex])
-      // Bring the new active terminal to front
-      bringToFront(terminalTypes[nextIndex])
+    if (!activeFullscreen || availableFullscreenKeys.length < 2) return
+    const currentIndex = availableFullscreenKeys.indexOf(activeFullscreen)
+    if (currentIndex === -1) return
+    let nextIndex = direction === "next"
+      ? (currentIndex + 1) % availableFullscreenKeys.length
+      : (currentIndex - 1 + availableFullscreenKeys.length) % availableFullscreenKeys.length
+    const nextKey = availableFullscreenKeys[nextIndex]
+    setActiveFullscreen(nextKey)
+    // Explicit check for 'v2' before calling bringToFront
+    if (nextKey === 'v2') {
+      bringV2ToFront()
     } else {
-      // If the next terminal isn't open, try the one after that
-      if (direction === "next") {
-        nextIndex = (nextIndex + 1) % terminalTypes.length
-      } else {
-        nextIndex = (nextIndex - 1 + terminalTypes.length) % terminalTypes.length
-      }
-
-      if (terminals[terminalTypes[nextIndex]].isOpen) {
-        setActiveFullscreen(terminalTypes[nextIndex])
-        bringToFront(terminalTypes[nextIndex])
-      }
+      // nextKey here is guaranteed to be TerminalType
+      bringToFront(nextKey)
     }
   }
 
@@ -543,12 +537,19 @@ export default function Home() {
   // TermWinV2 handlers
   const handleV2Close = () => {
     setIsTermWinV2Open(false)
+    if (activeFullscreen === 'v2') {
+      setActiveFullscreen(null)
+    }
   }
 
   const handleV2FullscreenChange = (isFullscreen: boolean) => {
-    // Placeholder: Implement fullscreen management for V2 if needed
-    console.log("TermWinV2 fullscreen changed:", isFullscreen)
-    // Example: you might want to hide other terminals when V2 is fullscreen
+    if (isFullscreen) {
+      setActiveFullscreen('v2')
+      bringV2ToFront()
+    } else if (activeFullscreen === 'v2') {
+      setActiveFullscreen(null)
+    }
+    console.log("TermWinV2 fullscreen changed:", isFullscreen, "Active FS:", isFullscreen ? 'v2' : null)
   }
 
   const bringV2ToFront = () => {
@@ -594,7 +595,10 @@ export default function Home() {
 
         <div className="flex flex-col items-center">
           <Button
-            onClick={() => setIsTermWinV2Open(true)}
+            onClick={() => {
+              setIsTermWinV2Open(true)
+              bringV2ToFront()
+            }}
             className="w-24 h-24 bg-[#e0e0e0] hover:bg-[#cccccc] text-[#333333] border border-[#bbbbbb] shadow-sm"
             disabled={isTermWinV2Open}
           >
@@ -665,7 +669,7 @@ export default function Home() {
           onSaveState={saveGroupState}
           isActive={activeFullscreen === "group" || activeFullscreen === null}
           initialPosition={groupInitialPosition}
-          savedMessages={terminals.group.messages}
+          savedMessages={terminals.group.messages as Message[]}
           savedScrollPosition={terminals.group.scrollPosition}
           zIndex={terminals.group.zIndex}
           onFocus={() => bringToFront("group")}
@@ -683,6 +687,7 @@ export default function Home() {
           zIndex={termWinV2ZIndex}
           initialMessage="Welcome to Terminal V2!"
           savedMessages={[]}
+          isActive={activeFullscreen === 'v2' || activeFullscreen === null}
           onClose={handleV2Close}
           onFullscreenChange={handleV2FullscreenChange}
           onFocus={bringV2ToFront}

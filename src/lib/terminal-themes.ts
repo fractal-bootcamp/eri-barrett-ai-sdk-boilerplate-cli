@@ -1,8 +1,20 @@
-// Theme configurations for different terminal types
+// Theme configurations for different terminal types/styles
+
+import { TerminalLLM } from "@/types/terminal-types"
 
 export type TerminalTheme = {
     id: string
     name: string
+    styles: TerminalStyle
+    senderName: string
+    userSenderName: string
+    asciiArt: string
+    llm: TerminalLLM
+    systemPrompt: string
+}
+
+export type TerminalStyle = {
+    gridColor: string
     background: string
     border: string
     headerBackground: string
@@ -24,9 +36,6 @@ export type TerminalTheme = {
     messageBorder: string
     timestampText: string
     resizeHandleBorder: string
-    gridColor: string
-    senderName: string
-    userSenderName: string
 }
 
 export const defaultTheme: TerminalTheme = {
@@ -117,13 +126,10 @@ export const voidTheme: TerminalTheme = {
 }
 
 export const getThemeById = (id: string): TerminalTheme => {
-    switch (id) {
-        case "npc":
-            return npcTheme
-        case "void":
-            return voidTheme
-        default:
-            return defaultTheme
+    const themes: Record<string, TerminalTheme> = {
+        npc: npcTheme,
+        void: voidTheme
     }
+    return themes[id] || defaultTheme
 }
 
