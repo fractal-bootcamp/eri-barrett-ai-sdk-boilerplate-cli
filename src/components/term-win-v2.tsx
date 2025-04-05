@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useEffect, forwardRef } from "react";
-import { motion, useMotionValue, type PanInfo, useDragControls } from "framer-motion";
+import { motion, useMotionValue, useDragControls } from "framer-motion";
 import { X, Minimize, Maximize, ChevronDown, ChevronUp, Send, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { TermWinV2Props, TerminalMessage } from "./terminal-types";
+import type { TermWinV2Props, TerminalMessage } from "../types/terminal-types";
 
 const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
     (
@@ -41,17 +41,15 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
         const [prevState, setPrevState] = useState({
             x: initialPosition.x,
             y: initialPosition.y,
-            width: 380,
-            height: 500,
         });
+        const fixedWidth = 380;
+        const fixedHeight = 500;
         const [isTransitioning, setIsTransitioning] = useState(false);
         const [isUnminimizing, setIsUnminimizing] = useState(false);
 
-        // --- Motion Values ---
+        // --- Motion Values (Position only) ---
         const x = useMotionValue(initialPosition.x);
         const y = useMotionValue(initialPosition.y);
-        const width = useMotionValue(prevState.width);
-        const height = useMotionValue(prevState.height);
 
         // --- Refs ---
         const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -73,24 +71,22 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
 
         useEffect(() => {
             if (isFullscreen) {
-                setPrevState({ x: x.get(), y: y.get(), width: width.get(), height: height.get() })
+                setPrevState({ x: x.get(), y: y.get() });
             }
-        }, [isFullscreen, x, y, width, height])
+        }, [isFullscreen, x, y]);
 
         useEffect(() => {
             if (!isFullscreen) {
-                x.set(prevState.x)
-                y.set(prevState.y)
-                width.set(prevState.width)
-                height.set(prevState.height)
+                x.set(prevState.x);
+                y.set(prevState.y);
             }
-        }, [isFullscreen, prevState, x, y, width, height])
+        }, [isFullscreen, prevState, x, y]);
 
         useEffect(() => {
             if (messagesContainerRef.current && savedScrollPosition > 0 && !isMinimized) {
-                messagesContainerRef.current.scrollTop = savedScrollPosition
+                messagesContainerRef.current.scrollTop = savedScrollPosition;
             }
-        }, [savedScrollPosition, isMinimized])
+        }, [savedScrollPosition, isMinimized]);
 
         useEffect(() => {
             if (!isMinimized && !isTransitioning && messagesEndRef.current) {
@@ -105,33 +101,27 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
 
         useEffect(() => {
             if (isUnminimizing && !isMinimized && messagesContainerRef.current) {
-                messagesContainerRef.current.scrollTop = savedScrollPos
-                const timer = setTimeout(() => { setIsUnminimizing(false) }, 50)
-                return () => clearTimeout(timer)
+                messagesContainerRef.current.scrollTop = savedScrollPos;
+                const timer = setTimeout(() => { setIsUnminimizing(false) }, 50);
+                return () => clearTimeout(timer);
             }
-        }, [isMinimized, isUnminimizing, savedScrollPos])
+        }, [isMinimized, isUnminimizing, savedScrollPos]);
 
         // --- Handlers ---
         const handleClose = () => {
             if (messagesContainerRef.current && onSaveState) {
                 onSaveState({ messages, scrollPosition: messagesContainerRef.current.scrollTop });
             }
-            onClose()
-        }
-
-        const handleResize = (_: any, info: PanInfo) => {
-            if (isFullscreen) return;
-            width.set(Math.max(300, width.get() + info.offset.x));
-            height.set(Math.max(200, height.get() + info.offset.y));
+            onClose();
         };
 
         const toggleFullscreen = () => {
-            if (isTransitioning) return
+            if (isTransitioning) return;
             if (isMinimized && !isFullscreen) {
                 setIsTransitioning(true);
                 setIsMinimized(false);
                 setTimeout(() => {
-                    setPrevState({ x: x.get(), y: y.get(), width: width.get(), height: height.get() });
+                    setPrevState({ x: x.get(), y: y.get() });
                     setIsFullscreen(true);
                     onFullscreenChange(true);
                     if (messagesContainerRef.current) messagesContainerRef.current.scrollTop = 0;
@@ -141,8 +131,7 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
                 setIsTransitioning(true);
                 if (!isFullscreen) {
                     if (messagesContainerRef.current) setSavedScrollPos(messagesContainerRef.current.scrollTop);
-                    setPrevState({ x: x.get(), y: y.get(), width: width.get(), height: height.get() });
-                } else {
+                    setPrevState({ x: x.get(), y: y.get() });
                 }
                 const newFullscreenState = !isFullscreen;
                 setIsFullscreen(newFullscreenState);
@@ -152,9 +141,9 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
         };
 
         const toggleMinimize = () => {
-            if (isTransitioning) return
+            if (isTransitioning) return;
             if (!isMinimized) {
-                setPrevState({ x: x.get(), y: y.get(), width: width.get(), height: height.get() });
+                setPrevState({ x: x.get(), y: y.get() });
                 if (messagesContainerRef.current) setSavedScrollPos(messagesContainerRef.current.scrollTop);
                 setIsMinimized(true);
             } else {
@@ -181,14 +170,14 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
                 const responseMessage: TerminalMessage = { id: (Date.now() + 1).toString(), content: responseContent, sender: "system", timestamp: new Date() };
                 setMessages((prev) => [...prev, responseMessage]);
             }, 1000);
-        }
+        };
         const handleKeyDown = (e: React.KeyboardEvent) => {
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSendMessage()
+                handleSendMessage();
             }
-        }
-        const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        };
+        const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         const exportChat = () => {
             const chatData = { id, theme: theme.id, timestamp: new Date().toISOString(), messages: messages.map(msg => ({ ...msg, timestamp: msg.timestamp.toISOString() })) };
             const jsonString = JSON.stringify(chatData, null, 2);
@@ -201,7 +190,7 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        }
+        };
         const getAsciiArt = () => {
             if (theme.id === "npc") return `...NPC ASCII...`;
             if (theme.id === "void") return `...VOID ASCII...`;
@@ -214,7 +203,7 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
         const startDrag = (event: React.PointerEvent) => { dragControls.start(event); };
 
         return (
-            <div className="fixed inset-0 overflow-hidden">
+            <div ref={constraintsRef} className="fixed inset-0 overflow-hidden">
                 <motion.div
                     ref={ref}
                     className={cn(
@@ -229,8 +218,8 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
                     style={{
                         x: isFullscreen ? 0 : x,
                         y: isFullscreen ? 0 : y,
-                        width: isFullscreen ? "100vw" : width,
-                        height: isFullscreen ? "100vh" : isMinimized ? "48px" : height,
+                        width: isFullscreen ? "100vw" : `${fixedWidth}px`,
+                        height: isFullscreen ? "100vh" : isMinimized ? "48px" : `${fixedHeight}px`,
                         transition: isTransitioning ? "opacity 0.1s ease-out" : "opacity 0.2s ease-in",
                         zIndex: isFullscreen ? 1000 : zIndex,
                     }}
@@ -239,6 +228,7 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
                     dragControls={dragControls}
                     dragMomentum={false}
                     dragElastic={0}
+                    dragConstraints={constraintsRef}
                     onDragStart={onDragStartHandler}
                     onDragEnd={onDragEndHandler}
                     onMouseDown={onFocus}
@@ -291,51 +281,16 @@ const TermWinV2 = forwardRef<HTMLDivElement, TermWinV2Props>(
                         </div>
                     )}
 
-                    {!isFullscreen && !isMinimized && (
-                        <>
-                            <motion.div
-                                className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize"
-                                style={{ touchAction: 'none' }}
-                                drag
-                                dragConstraints={{ top: 0, left: 0 }}
-                                dragMomentum={false}
-                                dragElastic={0}
-                                onDrag={handleResize}
-                            >
-                                <div className={`w-2 h-2 border-r-2 border-b-2 ${theme.resizeHandleBorder} absolute bottom-1 right-1`}></div>
-                            </motion.div>
-
-                            <motion.div
-                                className="absolute bottom-0 left-0 w-6 h-6 cursor-nesw-resize"
-                                style={{ touchAction: 'none' }}
-                                drag
-                                dragMomentum={false}
-                                dragElastic={0}
-                                dragConstraints={{ top: 0, right: 0 }}
-                                onDrag={(_, info) => {
-                                    if (isFullscreen) return;
-                                    const newWidth = Math.max(300, width.get() - info.offset.x);
-                                    const widthChange = width.get() - newWidth;
-                                    width.set(newWidth);
-                                    x.set(x.get() + widthChange);
-                                    height.set(Math.max(200, height.get() + info.offset.y));
-                                }}
-                            >
-                                <div className={`w-2 h-2 border-l-2 border-b-2 ${theme.resizeHandleBorder} absolute bottom-1 left-1`}></div>
-                            </motion.div>
-                        </>
-                    )}
-
                     <div
                         className="absolute inset-0 pointer-events-none z-10 opacity-5"
                         style={{ backgroundImage: `linear-gradient(${theme.gridColor} 1px, transparent 1px), linear-gradient(90deg, ${theme.gridColor} 1px, transparent 1px)`, backgroundSize: "4px 4px" }}
                     ></div>
                 </motion.div>
             </div>
-        )
+        );
     },
-)
+);
 
-TermWinV2.displayName = "TermWinV2"
+TermWinV2.displayName = "TermWinV2";
 
-export default TermWinV2 
+export default TermWinV2; 
