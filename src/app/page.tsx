@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import TerminalWindow from "@/components/terminal-window"
 import GroupChatWindow from "@/components/group-chat-window"
 import ConfirmationDialog from "@/components/confirmation-dialog"
+import TermWinV2 from "@/components/term-win-v2"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { defaultTheme, npcTheme, voidTheme } from "@/lib/terminal-themes"
@@ -131,6 +132,11 @@ export default function Home() {
 
   const [activeFullscreen, setActiveFullscreen] = useState<TerminalType | null>(null)
   const [nextZIndex, setNextZIndex] = useState(20) // Start z-index counter
+
+  // State for TermWinV2
+  const [isTermWinV2Open, setIsTermWinV2Open] = useState(false)
+  const termWinV2Ref = useRef<HTMLDivElement>(null)
+  const [termWinV2ZIndex, setTermWinV2ZIndex] = useState(15)
 
   // Function to bring a terminal to the front
   const bringToFront = (terminal: TerminalType) => {
@@ -518,6 +524,9 @@ export default function Home() {
     y: windowDimensions.height / 2 - 300, // Position in center
   }
 
+  // Calculate position for the new window
+  const v2InitialPosition = { x: windowDimensions.width / 2 - 190, y: windowDimensions.height - 550 }
+
   // Determine if taskbar should be visible (hide when fullscreen is active)
   const isTaskbarVisible =
     activeFullscreen === null &&
@@ -529,6 +538,23 @@ export default function Home() {
   // Get connected window names for group chat
   const getConnectedWindowNames = () => {
     return ["DEFAULT", "NPC", "VOID"].filter((name) => Math.random() > 0.5)
+  }
+
+  // TermWinV2 handlers
+  const handleV2Close = () => {
+    setIsTermWinV2Open(false)
+  }
+
+  const handleV2FullscreenChange = (isFullscreen: boolean) => {
+    // Placeholder: Implement fullscreen management for V2 if needed
+    console.log("TermWinV2 fullscreen changed:", isFullscreen)
+    // Example: you might want to hide other terminals when V2 is fullscreen
+  }
+
+  const bringV2ToFront = () => {
+    const newZ = nextZIndex
+    setTermWinV2ZIndex(newZ)
+    setNextZIndex((prev) => prev + 1)
   }
 
   return (
@@ -564,6 +590,17 @@ export default function Home() {
             <span className="font-mono">VOID</span>
           </Button>
           <p className="mt-2 text-center text-[#5a5751] max-w-xs text-sm">Cosmic void interface</p>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <Button
+            onClick={() => setIsTermWinV2Open(true)}
+            className="w-24 h-24 bg-[#e0e0e0] hover:bg-[#cccccc] text-[#333333] border border-[#bbbbbb] shadow-sm"
+            disabled={isTermWinV2Open}
+          >
+            <span className="font-mono">V2</span>
+          </Button>
+          <p className="mt-2 text-center text-[#5a5751] max-w-xs text-sm">New Terminal V2</p>
         </div>
       </div>
 
@@ -636,7 +673,22 @@ export default function Home() {
         />
       )}
 
-      {/* Confirmation dialog for permanent terminal closure */}
+      {isTermWinV2Open && (
+        <TermWinV2
+          ref={termWinV2Ref}
+          id="v2-terminal"
+          theme={defaultTheme}
+          initialPosition={v2InitialPosition}
+          savedScrollPosition={0}
+          zIndex={termWinV2ZIndex}
+          initialMessage="Welcome to Terminal V2!"
+          savedMessages={[]}
+          onClose={handleV2Close}
+          onFullscreenChange={handleV2FullscreenChange}
+          onFocus={bringV2ToFront}
+        />
+      )}
+
       {confirmationDialog.isOpen && (
         <ConfirmationDialog
           title={confirmationDialog.title}
@@ -648,7 +700,6 @@ export default function Home() {
         />
       )}
 
-      {/* Fullscreen navigation arrows */}
       {activeFullscreen && (
         <>
           <Button
@@ -666,11 +717,9 @@ export default function Home() {
         </>
       )}
 
-      {/* Toolbar with themed buttons in fixed positions - hidden when fullscreen is active */}
       {isTaskbarVisible && (
         <div className="fixed bottom-0 left-0 right-0 h-12 bg-[#e5e1d8] border-t border-[#c8c3b8] flex items-center justify-end px-4 z-50">
           <div className="flex items-center gap-2">
-            {/* Always render buttons in the same order, but hide when not minimized */}
             <div className={terminals.default.isToolbarMinimized ? "block" : "hidden"}>
               <div className="flex items-center">
                 <Button
